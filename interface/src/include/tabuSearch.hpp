@@ -1,14 +1,12 @@
 #pragma once
 
 #include "metaheuristicas.hpp"
-
 #include <vector>
 #include <string>
 #include <random>
 #include <tuple>
-#include <ctype.h>
 
-// Estrutura auxiliar para guardar os dados de cada item
+// Se já foi definido em outro arquivo, não define novamente
 #ifndef ITEM_STRUCT_DEFINED
 #define ITEM_STRUCT_DEFINED
 struct Item {
@@ -18,35 +16,31 @@ struct Item {
 };
 #endif
 
-class ILS : public Metaheuristicas {
+class TabuSearch : public Metaheuristicas {
 private:
     std::vector<Item> itens;
     int capacidade;
     int interacoes;
-    int nivel_perturbacao;
+    int tenencia_tabu;
     int taxa_violacao;
-    int limite_sem_melhora;
     int seed;
 
     std::vector<int> melhor_solucao;
     int melhor_valor;
-    std::vector<int> historico_ils;
-    int tempo_final_ils; // O peso da melhor solução
+    std::vector<int> historico_tabu;
+    int tempo_final_tabu;
 
-    std::mt19937 rng; // Gerador de números aleatórios de alta performance do C++
+    std::mt19937 rng;
 
     // Métodos privados
     std::tuple<int, int, int> avaliarSolucao(const std::vector<int>& solucao);
     std::vector<int> gerarSolucaoAleatoria();
-    std::vector<int> perturbarSolucao(const std::vector<int>& solucao);
-    std::pair<std::vector<int>, int> buscaLocal(const std::vector<int>& solucao_inicial);
 
 public:
-    ILS() = default;
+    TabuSearch() = default;
     
-    // Métodos obrigatórios da classe abstrata
     void solve() override;
     void setParametros(const json &params) override;
     json getResultados() const override;
-    std::string getNome() const override { return "ILS"; }
+    std::string getNome() const override { return "Tabu Search"; }
 };

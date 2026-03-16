@@ -16,7 +16,7 @@ except ImportError as e:
 # Importações da Interface Gráfica (PyQt6)
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                                QHBoxLayout, QFormLayout, QLineEdit, QPushButton, 
-                               QTextEdit, QLabel)
+                               QTextEdit, QLabel, QGroupBox, QCheckBox)
 from PyQt6.QtCore import Qt
 
 import matplotlib
@@ -25,8 +25,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 
 # Função para gerar instâncias de produção aleatórias
-def get_dict_producao(qntd_itens: int, tempo_max: int, lucro_max: int) -> dict:
-    np.random.seed(42)
+    np.random.seed(seed) # Usamos a seed aqui para garantir a mesma instância sempre
     dict_producao = {}
     for i in range(1, qntd_itens + 1):
         dict_producao[f'OP_{i:03d}'] = {
@@ -40,7 +39,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Otimizador com Metaheurísticas - LASOS")
-        self.resize(1000, 600)
+        self.resize(1100, 700)
 
         widget_central = QWidget()
         self.setCentralWidget(widget_central)
@@ -50,46 +49,70 @@ class MainWindow(QMainWindow):
         painel_esquerdo = QWidget()
         layout_esq = QVBoxLayout(painel_esquerdo)
         layout_esq.setAlignment(Qt.AlignmentFlag.AlignTop)
+        
+        # Seleção de algoritmos a executar
+        grupo_algoritmos = QGroupBox("Algoritmos a Executar")
+        layout_algos = QVBoxLayout()
+        self.cb_ils = QCheckBox("Iterated Local Search (ILS)")
+        self.cb_tabu = QCheckBox("Tabu Search (TS)")
+        self.cb_ils.setChecked(True)
+        self.cb_tabu.setChecked(True) # Ambos marcados por padrão
+        layout_algos.addWidget(self.cb_ils)
+        layout_algos.addWidget(self.cb_tabu)
+        grupo_algoritmos.setLayout(layout_algos)
+        layout_esq.addWidget(grupo_algoritmos)
 
-        layout_esq.addWidget(QLabel("<b>Parâmetros do ILS</b>"))
-
-        form_layout = QFormLayout()
+        # Dados gerais da instância
+        grupo_instancia = QGroupBox("Parâmetros do Problema (Instância)")
+        form_instancia = QFormLayout()
         self.in_qntd = QLineEdit("500")
         self.in_capacidade = QLineEdit("480")
+        self.in_taxa_violacao = QLineEdit("2000")
+        self.in_seed = QLineEdit("42")
+        form_instancia.addRow("Qtd. de Ordens:", self.in_qntd)
+        form_instancia.addRow("Capacidade (Turno):", self.in_capacidade)
+        form_instancia.addRow("Multa por Violação:", self.in_taxa_violacao)
+        form_instancia.addRow("Semente (Seed):", self.in_seed)
+        grupo_instancia.setLayout(form_instancia)
+        layout_esq.addWidget(grupo_instancia)
+
+        # Parâmetros específicos dos algoritmos
+        grupo_params = QGroupBox("Ajuste Fino das Metaheurísticas")
+        form_params = QFormLayout()
         self.in_iteracoes = QLineEdit("1000")
         self.in_perturbacao = QLineEdit("5")
-        self.in_taxa_violacao = QLineEdit("20")
+        self.in_tenencia = QLineEdit("10")
         self.in_limite_sem_melhora = QLineEdit("100")
-        self.in_seed = QLineEdit("42")
         
-        form_layout.addRow("Qtd. Itens:", self.in_qntd)
-        form_layout.addRow("Capacidade (Turno):", self.in_capacidade)
-        form_layout.addRow("Iterações:", self.in_iteracoes)
-        form_layout.addRow("Perturbação:", self.in_perturbacao)
-        form_layout.addRow("Taxa de Violação:", self.in_taxa_violacao)
-        form_layout.addRow("Limite sem Melhora:", self.in_limite_sem_melhora)
-        form_layout.addRow("Seed:", self.in_seed)
-        layout_esq.addLayout(form_layout)
+        form_params.addRow("Iterações Totais:", self.in_iteracoes)
+        form_params.addRow("ILS - Nível de Perturbação:", self.in_perturbacao)
+        form_params.addRow("ILS - Limite de Estagnação:", self.in_limite_sem_melhora)
+        form_params.addRow("TABU - Tenência (Memória):", self.in_tenencia)
+        grupo_params.setLayout(form_params)
+        layout_esq.addWidget(grupo_params)
 
-        self.btn_rodar = QPushButton("▶ Executar Otimização")
-        self.btn_rodar.setStyleSheet("background-color: #27ae60; color: white; font-weight: bold; padding: 10px;")
+        # Botão para rodar os algoritmos
+        self.btn_rodar = QPushButton("▶ Executar Algoritmos")
+        self.btn_rodar.setStyleSheet("background-color: #2980b9; color: white; font-weight: bold; padding: 12px; font-size: 14px;")
         self.btn_rodar.clicked.connect(self.rodar_otimizacao)
         layout_esq.addWidget(self.btn_rodar)
 
+        # Caixa de log para mostrar mensagens e resultados
         self.caixa_log = QTextEdit()
         self.caixa_log.setReadOnly(True)
+        self.caixa_log.setStyleSheet("background-color: #f8f9fa; font-family: Consolas, monospace;")
         layout_esq.addWidget(self.caixa_log)
 
         # Painel direito para visualização gráfica
         painel_direito = QWidget()
         layout_dir = QVBoxLayout(painel_direito)
 
-        self.figura, self.ax = plt.subplots(figsize=(6, 4))
+        self.figura, self.ax = plt.subplots(figsize=(7, 5))
         self.canvas = FigureCanvas(self.figura)
         layout_dir.addWidget(self.canvas)
 
-        layout_principal.addWidget(painel_esquerdo, 1)
-        layout_principal.addWidget(painel_direito, 2)
+        layout_principal.addWidget(painel_esquerdo, 3)
+        layout_principal.addWidget(painel_direito, 5)
 
     def log(self, mensagem):
         self.caixa_log.append(mensagem)
@@ -98,47 +121,76 @@ class MainWindow(QMainWindow):
     def rodar_otimizacao(self):
         self.caixa_log.clear()
         self.ax.clear()
-        self.canvas.draw()
-
+        
         qntd = int(self.in_qntd.text())
         capacidade = int(self.in_capacidade.text())
-        iteracoes = int(self.in_iteracoes.text())
-        perturbacao = int(self.in_perturbacao.text())
         taxa_violacao = int(self.in_taxa_violacao.text())
-        limite_sem_melhora = int(self.in_limite_sem_melhora.text())
         seed = int(self.in_seed.text())
+        iteracoes = int(self.in_iteracoes.text())
 
-        self.log(f"Gerando {qntd} ordens de produção aleatórias com tempo máximo de 90 min e lucro máximo de R$ 5000...")
-        ordens_producao = get_dict_producao(qntd, tempo_max=90, lucro_max=5000)
+        self.log(f"Gerando {qntd} ordens de produção (Seed: {seed})...")
+        ordens_producao = get_dict_producao(qntd, tempo_max=90, lucro_max=5000, seed=seed)
 
-        config_ils = {
+        config_base = {
             "itens": ordens_producao,
             "capacidade": capacidade,
             "interacoes": iteracoes,
-            "nivel_perturbacao": perturbacao,
             "taxa_violacao": taxa_violacao,
-            "limite_sem_melhora": limite_sem_melhora,
             "seed": seed
         }
 
-        self.log(f"Iniciando ILS... (backend em C++)")
-        ils = meta_engine.ILS()
-        ils.setParametros(config_ils)
-        ils.solve()
+        rodou_alguma = False
 
-        resultados = ils.getResultados()
-        
-        self.log("ILS finalizado!")
-        self.log(f"Melhor Lucro: R$ {resultados.get('melhor_valor')}")
-        self.log(f"Tempo Utilizado: {resultados.get('tempo_final_ils')}/{capacidade} min")
-        
-        historico = resultados.get("historico_ils", [])
-        self.ax.plot(historico, color='#2980b9', linewidth=2)
-        self.ax.set_title('Curva de Convergência (ILS C++)', fontsize=12)
-        self.ax.set_xlabel('Iterações')
-        self.ax.set_ylabel('Lucro (R$)')
-        self.ax.grid(True, linestyle='--', alpha=0.7)
-        self.canvas.draw()
+        # Execução do ILS
+        if self.cb_ils.isChecked():
+            self.log("\n⚙️ Iniciando Iterated Local Search (ILS)...")
+            config_ils = config_base.copy()
+            config_ils["nivel_perturbacao"] = int(self.in_perturbacao.text())
+            config_ils["limite_sem_melhora"] = int(self.in_limite_sem_melhora.text())
+
+            ils = meta_engine.ILS()
+            ils.setParametros(config_ils)
+            ils.solve()
+
+            res_ils = ils.getResultados()
+            self.log(f"   ↳ Lucro Máximo: R$ {res_ils.get('melhor_valor')}")
+            self.log(f"   ↳ Tempo: {res_ils.get('tempo_final_ils')}/{capacidade} min")
+            
+            # Plota a linha do ILS em Azul
+            hist_ils = res_ils.get("historico_ils", [])
+            self.ax.plot(hist_ils, label='ILS', color='#2980b9', linewidth=2)
+            rodou_alguma = True
+
+        #  Execução do Tabu Search
+        if self.cb_tabu.isChecked():
+            self.log("\n⚙️ Iniciando Tabu Search...")
+            config_tabu = config_base.copy()
+            config_tabu["tenencia_tabu"] = int(self.in_tenencia.text())
+
+            tabu = meta_engine.TabuSearch()
+            tabu.setParametros(config_tabu)
+            tabu.solve()
+
+            res_tabu = tabu.getResultados()
+            self.log(f"   ↳ Lucro Máximo: R$ {res_tabu.get('melhor_valor')}")
+            # Usando a mesma chave 'tempo_final_ils' porque o C++ reaproveitou o nome no JSON
+            self.log(f"   ↳ Tempo: {res_tabu.get('tempo_final_ils')}/{capacidade} min")
+            
+            # Plota a linha do Tabu em Laranja/Vermelho
+            hist_tabu = res_tabu.get("historico_ils", [])
+            self.ax.plot(hist_tabu, label='Tabu Search', color='#e67e22', linewidth=2)
+            rodou_alguma = True
+
+        if rodou_alguma:
+            self.log("\n✅ Execução Concluída!")
+            self.ax.set_title('Comparativo de Convergência', fontsize=14, fontweight='bold')
+            self.ax.set_xlabel('Iterações', fontsize=11)
+            self.ax.set_ylabel('Lucro Global Encontrado (R$)', fontsize=11)
+            self.ax.grid(True, linestyle='--', alpha=0.7)
+            self.ax.legend(loc="lower right") # Mostra a legenda identificando as cores
+            self.canvas.draw()
+        else:
+            self.log("\n⚠️ Nenhum algoritmo foi selecionado para rodar.")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
