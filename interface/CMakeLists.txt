@@ -22,4 +22,5 @@ pybind11_add_module(
     src/tabuSearch.cpp 
     src/simulatedAnnealing.cpp
     src/greedy.cpp
+    src/algGenetico.cpp
 )

@@ -1,9 +1,11 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h> // converter std::vector e std::string em dict e string do Python
+
 #include "include/ILS.hpp"
 #include "include/tabuSearch.hpp"
 #include "include/simulatedAnnealing.hpp"
 #include "include/greedy.hpp"
+#include "include/algGenetico.hpp"
 
 namespace py = pybind11;
 
@@ -59,4 +61,17 @@ PYBIND11_MODULE(meta_engine, m) {
             return py::module_::import("json").attr("loads")(self.getResultados().dump());
         })
         .def("getNome", &Greedy::getNome);
+
+    // Binding para Algoritmo Genético (JSP)
+    py::class_<GeneticAlgorithmJSP>(m, "GeneticAlgorithmJSP")
+        .def(py::init<>())
+        .def("solve", &GeneticAlgorithmJSP::solve)
+        .def("setParametros", [](GeneticAlgorithmJSP& self, const py::object& obj) {
+            std::string s = py::module_::import("json").attr("dumps")(obj).cast<std::string>();
+            self.setParametros(json::parse(s));
+        })
+        .def("getResultados", [](const GeneticAlgorithmJSP& self) {
+            return py::module_::import("json").attr("loads")(self.getResultados().dump());
+        })
+        .def("getNome", &GeneticAlgorithmJSP::getNome);
 }

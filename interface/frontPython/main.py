@@ -16,7 +16,8 @@ except ImportError as e:
 # Importações da Interface Gráfica (PyQt6)
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                                QHBoxLayout, QFormLayout, QLineEdit, QPushButton, 
-                               QTextEdit, QLabel, QGroupBox, QCheckBox, QComboBox)
+                               QTextEdit, QLabel, QGroupBox, QCheckBox, QComboBox,
+                               QTabWidget)
 from PyQt6.QtCore import Qt
 
 import matplotlib
@@ -24,7 +25,7 @@ matplotlib.use('QtAgg') # Forçando o Matplotlib a usar o Qt correto
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 
-# Função para gerar instâncias de produção aleatórias
+# Função para gerar instâncias de produção aleatórias (mochila)
 def get_dict_producao(qntd_itens: int, tempo_max: int, lucro_max: int, seed: int = 42) -> dict:
     np.random.seed(seed) # Usamos a seed aqui para garantir a mesma instância sempre
     dict_producao = {}
@@ -40,11 +41,26 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Otimizador com Metaheurísticas - LASOS")
-        self.resize(1100, 750)
+        self.resize(1200, 800) 
 
-        widget_central = QWidget()
-        self.setCentralWidget(widget_central)
-        layout_principal = QHBoxLayout(widget_central)
+        # Criando o sistema de Abas
+        self.abas = QTabWidget()
+        self.setCentralWidget(self.abas)
+
+        # Criando os widgets para cada aba
+        self.aba_mochila = QWidget()
+        self.aba_jsp = QWidget()
+
+        self.abas.addTab(self.aba_mochila, "📦 Knapsack Problem (Mochila)")
+        self.abas.addTab(self.aba_jsp, "🏭 Job Shop Scheduling (JSP)")
+
+        # Inicializando o conteúdo de cada aba
+        self.setup_aba_mochila()
+        self.setup_aba_jsp()
+
+    # Aba para problema da mochila
+    def setup_aba_mochila(self):
+        layout_principal = QHBoxLayout(self.aba_mochila)
 
         # Painel esquerdo para parâmetros e log
         painel_esquerdo = QWidget()
@@ -84,7 +100,7 @@ class MainWindow(QMainWindow):
         grupo_instancia = QGroupBox("Parâmetros do Problema (Instância)")
         form_instancia = QFormLayout()
         
-        # Novo campo: Dropdown para Solução Inicial
+        # Dropdown para Solução Inicial
         self.cb_solucao_inicial = QComboBox()
         self.cb_solucao_inicial.addItems([
             "Aleatória", "Vazia", "Cheia", 
@@ -146,8 +162,58 @@ class MainWindow(QMainWindow):
         layout_principal.addWidget(painel_esquerdo, 3)
         layout_principal.addWidget(painel_direito, 5)
 
+    # Aba para problema de Job Shop Scheduling (JSP)
+    def setup_aba_jsp(self):
+        layout_principal = QHBoxLayout(self.aba_jsp)
+
+        # Painel Esquerdo
+        painel_esquerdo = QWidget()
+        layout_esq = QVBoxLayout(painel_esquerdo)
+        layout_esq.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        grupo_params = QGroupBox("Parâmetros do Algoritmo Genético")
+        form_params = QFormLayout()
+        
+        self.in_jsp_pop = QLineEdit("20")
+        self.in_jsp_gen = QLineEdit("100")
+        self.in_jsp_mut = QLineEdit("0.1")
+        self.in_jsp_seed = QLineEdit("42")
+
+        form_params.addRow("Tamanho da População:", self.in_jsp_pop)
+        form_params.addRow("Gerações:", self.in_jsp_gen)
+        form_params.addRow("Taxa de Mutação (0 a 1):", self.in_jsp_mut)
+        form_params.addRow("Semente (Seed):", self.in_jsp_seed)
+        
+        grupo_params.setLayout(form_params)
+        layout_esq.addWidget(grupo_params)
+
+        self.btn_rodar_jsp = QPushButton("▶ Executar Algoritmo Genético")
+        self.btn_rodar_jsp.setStyleSheet("background-color: #27ae60; color: white; font-weight: bold; padding: 12px; font-size: 14px;")
+        self.btn_rodar_jsp.clicked.connect(self.rodar_jsp)
+        layout_esq.addWidget(self.btn_rodar_jsp)
+
+        self.caixa_log_jsp = QTextEdit()
+        self.caixa_log_jsp.setReadOnly(True)
+        self.caixa_log_jsp.setStyleSheet("background-color: #f8f9fa; font-family: Consolas, monospace;")
+        layout_esq.addWidget(self.caixa_log_jsp)
+
+        # Painel Direito (Gráficos)
+        painel_direito = QWidget()
+        layout_dir = QVBoxLayout(painel_direito)
+
+        self.figura_jsp, (self.ax_gantt, self.ax_conv) = plt.subplots(2, 1, figsize=(7, 7), gridspec_kw={'height_ratios': [2, 1]})
+        self.canvas_jsp = FigureCanvas(self.figura_jsp)
+        layout_dir.addWidget(self.canvas_jsp)
+
+        layout_principal.addWidget(painel_esquerdo, 3)
+        layout_principal.addWidget(painel_direito, 5)
+
     def log(self, mensagem):
         self.caixa_log.append(mensagem)
+        QApplication.processEvents() 
+
+    def log_jsp(self, mensagem):
+        self.caixa_log_jsp.append(mensagem)
         QApplication.processEvents() 
 
     def executar_guloso(self, config_base, estrategia, label, cor):
@@ -268,9 +334,7 @@ class MainWindow(QMainWindow):
             self.log(f"   ↳ Solução Inicial: R$ {res_sa.get('valor_inicial')} | Tempo: {res_sa.get('tempo_inicial')} min")
             self.log(f"   ↳ Lucro Final: R$ {res_sa.get('melhor_valor')}")
             self.log(f"   ↳ Tempo Final: {res_sa.get('tempo_final_ils')}/{capacidade} min")
-            
-            hist_sa = res_sa.get("historico_ils", [])
-            self.ax.plot(hist_sa, label='SA', color="#CC720B", linewidth=2)
+            self.ax.plot(res_sa.get("historico_ils", []), label='SA', color='#27ae60', linewidth=2)
             rodou_alguma = True
 
         if rodou_alguma:
@@ -283,6 +347,71 @@ class MainWindow(QMainWindow):
             self.canvas.draw()
         else:
             self.log("\n⚠️ Nenhum algoritmo foi selecionado para rodar.")
+
+    # Função para rodar o Algoritmo Genético para JSP
+    def rodar_jsp(self):
+        self.caixa_log_jsp.clear()
+        self.ax_gantt.clear()
+        self.ax_conv.clear()
+
+        tamanho_pop = int(self.in_jsp_pop.text())
+        geracoes = int(self.in_jsp_gen.text())
+        mutacao_rate = float(self.in_jsp_mut.text())
+        seed = int(self.in_jsp_seed.text())
+
+        self.log_jsp("Iniciando Algoritmo Genético para Job Shop Scheduling\n")
+        
+        ga = meta_engine.GeneticAlgorithmJSP()
+        ga.setParametros({
+            "tamanho_pop": tamanho_pop,
+            "geracoes": geracoes,
+            "mutacao_rate": mutacao_rate,
+            "seed": seed
+        })
+        
+        ga.solve()
+        res = ga.getResultados()
+
+        self.log_jsp("✅ Execução Concluída!\n")
+        self.log_jsp(f"Melhor Atraso Total: {res.get('melhor_atraso')} minutos")
+        self.log_jsp(f"Melhor Cromossomo: {res.get('melhor_cromossomo')}")
+
+        # Grafico de Gantt
+        gantt_data = res.get("gantt_data", [])
+        cores_jobs = {"Carro": "#3498db", "Boneca": "#e74c3c", "Robô": "#2ecc71"} # Azul, Vermelho, Verde
+        
+        maquinas_y = {"M1": 0, "M2": 1, "M3": 2}
+        
+        for bloco in gantt_data:
+            job = bloco["job"]
+            maq = bloco["machine"]
+            inicio = bloco["start"]
+            fim = bloco["end"]
+            duracao = fim - inicio
+            
+            y_pos = maquinas_y[maq]
+            
+            # Desenha a barra horizontal (Gantt)
+            self.ax_gantt.barh(y_pos, duracao, left=inicio, color=cores_jobs.get(job, "gray"), edgecolor='black', height=0.6)
+            # Adiciona o nome do Job no meio da barra
+            self.ax_gantt.text(inicio + duracao/2, y_pos, job, ha='center', va='center', color='white', fontweight='bold')
+
+        self.ax_gantt.set_yticks(list(maquinas_y.values()))
+        self.ax_gantt.set_yticklabels(list(maquinas_y.keys()))
+        self.ax_gantt.set_xlabel("Tempo (minutos)")
+        self.ax_gantt.set_title("Gráfico de Gantt da Melhor Rota (JSP)", fontweight='bold')
+        self.ax_gantt.grid(True, axis='x', linestyle='--', alpha=0.5)
+
+        # Curva de Convergência
+        historico = res.get("historico_fitness", [])
+        self.ax_conv.plot(historico, color='#8e44ad', linewidth=2)
+        self.ax_conv.set_title("Convergência do Genético (Menor é Melhor)", fontsize=10)
+        self.ax_conv.set_xlabel("Gerações", fontsize=9)
+        self.ax_conv.set_ylabel("Atraso Total", fontsize=9)
+        self.ax_conv.grid(True, linestyle='--', alpha=0.7)
+
+        self.figura_jsp.tight_layout() # Ajusta os espaçamentos para não sobrepor
+        self.canvas_jsp.draw()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
