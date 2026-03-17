@@ -5,6 +5,7 @@
 #include <cmath>
 
 void SimulatedAnnealing::setParametros(const json &params) {
+    tipo_solucao_inicial = params.value("tipo_solucao_inicial", "aleatoria");
     capacidade = params.value("capacidade", 0);
     interacoes = params.value("interacoes", 1000);
     temperatura_inicial = params.value("temperatura_inicial", 1000.0);
@@ -44,27 +45,72 @@ std::tuple<int, int, int> SimulatedAnnealing::avaliarSolucao(const std::vector<i
     return {valor_total, peso_total, avaliacao};
 }
 
-std::vector<int> SimulatedAnnealing::gerarSolucaoAleatoria() {
+/// @brief Método para gerar uma solução inicial baseada no tipo definido
+std::vector<int> SimulatedAnnealing::gerarSolucaoInicial() {
     std::vector<int> solucao(itens.size(), 0);
+
+    if (tipo_solucao_inicial == "vazia") return solucao;
+
+    if (tipo_solucao_inicial == "cheia") {
+        solucao.assign(itens.size(), 1);
+        return solucao;
+    }
+
     std::vector<int> indices(itens.size());
     std::iota(indices.begin(), indices.end(), 0);
-    std::shuffle(indices.begin(), indices.end(), rng);
+
+    if (tipo_solucao_inicial == "aleatoria") {
+        std::shuffle(indices.begin(), indices.end(), rng);
+    } 
     
+    else if (tipo_solucao_inicial == "valor") {
+        std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+            if (itens[a].valor == itens[b].valor) return itens[a].peso < itens[b].peso;
+
+            return itens[a].valor > itens[b].valor;
+        });
+    } 
+    
+    else if (tipo_solucao_inicial == "peso") {
+        std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+            if (itens[a].peso == itens[b].peso) return itens[a].valor > itens[b].valor;
+
+            return itens[a].peso < itens[b].peso;
+        });
+    } 
+    
+    else if (tipo_solucao_inicial == "densidade") {
+        std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+            double denA = itens[a].peso > 0 ? (double)itens[a].valor / itens[a].peso : 0.0;
+            double denB = itens[b].peso > 0 ? (double)itens[b].valor / itens[b].peso : 0.0;
+
+            if (denA == denB) return itens[a].valor > itens[b].valor;
+
+            return denA > denB;
+        });
+    }
+
+    // Preenche a mochila respeitando a capacidade
     int peso_atual = 0;
+
     for(int idx : indices) {
         if(peso_atual + itens[idx].peso <= capacidade) {
             solucao[idx] = 1;
             peso_atual += itens[idx].peso;
         }
     }
+
     return solucao;
 }
 
 void SimulatedAnnealing::solve() {
     historico_sa.clear();
     
-    std::vector<int> solucao_atual = gerarSolucaoAleatoria();
+    std::vector<int> solucao_atual = gerarSolucaoInicial();
     auto [v_ini, p_ini, aval_atual] = avaliarSolucao(solucao_atual);
+    
+    valor_inicial = aval_atual;
+    tempo_inicial = p_ini;
     
     melhor_solucao = solucao_atual;
     melhor_valor = aval_atual;
@@ -110,6 +156,8 @@ void SimulatedAnnealing::solve() {
 
 json SimulatedAnnealing::getResultados() const {
     json res;
+    res["valor_inicial"] = valor_inicial;
+    res["tempo_inicial"] = tempo_inicial;
     res["melhor_valor"] = melhor_valor;
     // Mantendo a chave "historico_ils" para compatibilidade com o Python
     res["historico_ils"] = historico_sa; 

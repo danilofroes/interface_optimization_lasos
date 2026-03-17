@@ -5,6 +5,7 @@
 
 /// @brief Método para receber os dados do Python via JSON
 void ILS::setParametros(const json &params) {
+    tipo_solucao_inicial = params.value("tipo_solucao_inicial", "aleatoria");
     capacidade = params.value("capacidade", 0);
     interacoes = params.value("interacoes", 1000);
     nivel_perturbacao = params.value("nivel_perturbacao", 1);
@@ -84,27 +85,61 @@ std::vector<int> ILS::perturbarSolucao(const std::vector<int>& solucao) {
     return nova_solucao;
 }
 
-/// @brief Método para gerar uma solução aleatória
-std::vector<int> ILS::gerarSolucaoAleatoria() {
-    std::vector<int> solucao(itens.size(), 0); // Começa tudo com 0
-    
-    // Cria um vetor de índices [0, 1, 2, ..., N-1]
+/// @brief Método para gerar uma solução inicial baseada no tipo definido
+std::vector<int> ILS::gerarSolucaoInicial() {
+    std::vector<int> solucao(itens.size(), 0);
+
+    if (tipo_solucao_inicial == "vazia") return solucao;
+
+    if (tipo_solucao_inicial == "cheia") {
+        solucao.assign(itens.size(), 1);
+        return solucao;
+    }
+
     std::vector<int> indices(itens.size());
     std::iota(indices.begin(), indices.end(), 0);
+
+    if (tipo_solucao_inicial == "aleatoria") {
+        std::shuffle(indices.begin(), indices.end(), rng);
+    } 
     
-    // Embaralha a ordem de avaliação dos itens
-    std::shuffle(indices.begin(), indices.end(), rng);
+    else if (tipo_solucao_inicial == "valor") {
+        std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+            if (itens[a].valor == itens[b].valor) return itens[a].peso < itens[b].peso;
+
+            return itens[a].valor > itens[b].valor;
+        });
+    } 
     
+    else if (tipo_solucao_inicial == "peso") {
+        std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+            if (itens[a].peso == itens[b].peso) return itens[a].valor > itens[b].valor;
+
+            return itens[a].peso < itens[b].peso;
+        });
+    } 
+    
+    else if (tipo_solucao_inicial == "densidade") {
+        std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+            double denA = itens[a].peso > 0 ? (double)itens[a].valor / itens[a].peso : 0.0;
+            double denB = itens[b].peso > 0 ? (double)itens[b].valor / itens[b].peso : 0.0;
+
+            if (denA == denB) return itens[a].valor > itens[b].valor;
+
+            return denA > denB;
+        });
+    }
+
+    // Preenche a mochila respeitando a capacidade
     int peso_atual = 0;
-    
-    // Coloca os itens aleatoriamente até a mochila encher
+
     for(int idx : indices) {
         if(peso_atual + itens[idx].peso <= capacidade) {
             solucao[idx] = 1;
             peso_atual += itens[idx].peso;
         }
     }
-    
+
     return solucao;
 }
 
@@ -112,8 +147,11 @@ std::vector<int> ILS::gerarSolucaoAleatoria() {
 void ILS::solve() {
     historico_ils.clear();
     
-    std::vector<int> solucao_atual = gerarSolucaoAleatoria();
+    std::vector<int> solucao_atual = gerarSolucaoInicial();
     auto [v_ini, p_ini, aval_atual] = avaliarSolucao(solucao_atual);
+    
+    valor_inicial = aval_atual;
+    tempo_inicial = p_ini;
 
     auto [sol_bl, aval_bl] = buscaLocal(solucao_atual);
     solucao_atual = sol_bl;
@@ -158,6 +196,8 @@ void ILS::solve() {
 /// @brief Método para retornar os dados para o Python plottar
 json ILS::getResultados() const {
     json res;
+    res["valor_inicial"] = valor_inicial;
+    res["tempo_inicial"] = tempo_inicial;
     res["melhor_valor"] = melhor_valor;
     res["historico_ils"] = historico_ils;
     res["tempo_final_ils"] = tempo_final_ils;

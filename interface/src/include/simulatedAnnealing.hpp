@@ -24,6 +24,10 @@ private:
     double taxa_resfriamento;
     int seed;
 
+    std::string tipo_solucao_inicial;
+    int valor_inicial;
+    int tempo_inicial;
+
     std::vector<int> melhor_solucao;
     int melhor_valor;
     std::vector<int> historico_sa;
@@ -33,7 +37,7 @@ private:
 
     // Métodos internos
     std::tuple<int, int, int> avaliarSolucao(const std::vector<int>& solucao);
-    std::vector<int> gerarSolucaoAleatoria();
+    std::vector<int> gerarSolucaoInicial();
 
 public:
     SimulatedAnnealing() = default;

@@ -28,6 +28,10 @@ private:
     int limite_sem_melhora;
     int seed;
 
+    std::string tipo_solucao_inicial;
+    int valor_inicial;
+    int tempo_inicial;
+
     std::vector<int> melhor_solucao;
     int melhor_valor;
     std::vector<int> historico_ils;
@@ -37,7 +41,7 @@ private:
 
     // Métodos privados
     std::tuple<int, int, int> avaliarSolucao(const std::vector<int>& solucao);
-    std::vector<int> gerarSolucaoAleatoria();
+    std::vector<int> gerarSolucaoInicial();
     std::vector<int> perturbarSolucao(const std::vector<int>& solucao);
     std::pair<std::vector<int>, int> buscaLocal(const std::vector<int>& solucao_inicial);
 

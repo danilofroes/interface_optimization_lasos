@@ -16,7 +16,7 @@ except ImportError as e:
 # Importações da Interface Gráfica (PyQt6)
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                                QHBoxLayout, QFormLayout, QLineEdit, QPushButton, 
-                               QTextEdit, QLabel, QGroupBox, QCheckBox)
+                               QTextEdit, QLabel, QGroupBox, QCheckBox, QComboBox)
 from PyQt6.QtCore import Qt
 
 import matplotlib
@@ -80,15 +80,25 @@ class MainWindow(QMainWindow):
         grupo_algoritmos.setLayout(layout_algos)
         layout_esq.addWidget(grupo_algoritmos)
 
-        # Dados gerais da instância
+        # Dados gerais da instância e Solução Inicial
         grupo_instancia = QGroupBox("Parâmetros do Problema (Instância)")
         form_instancia = QFormLayout()
+        
+        # Novo campo: Dropdown para Solução Inicial
+        self.cb_solucao_inicial = QComboBox()
+        self.cb_solucao_inicial.addItems([
+            "Aleatória", "Vazia", "Cheia", 
+            "Guloso (Densidade)", "Guloso (Valor)", "Guloso (Peso)"
+        ])
+        
         self.in_qntd = QLineEdit("500")
         self.in_capacidade = QLineEdit("480")
         self.in_taxa_violacao = QLineEdit("2000")
         self.in_seed = QLineEdit("42")
+        
         form_instancia.addRow("Qtd. de Ordens:", self.in_qntd)
         form_instancia.addRow("Capacidade (Turno):", self.in_capacidade)
+        form_instancia.addRow("Solução Inicial:", self.cb_solucao_inicial)
         form_instancia.addRow("Multa por Violação:", self.in_taxa_violacao)
         form_instancia.addRow("Semente (Seed):", self.in_seed)
         grupo_instancia.setLayout(form_instancia)
@@ -169,6 +179,17 @@ class MainWindow(QMainWindow):
         seed = int(self.in_seed.text())
         iteracoes = int(self.in_iteracoes.text())
 
+        # Mapeamento do texto da interface para o backend em C++
+        mapa_solucoes = {
+            "Aleatória": "aleatoria",
+            "Vazia": "vazia",
+            "Cheia": "cheia",
+            "Guloso (Densidade)": "densidade",
+            "Guloso (Valor)": "valor",
+            "Guloso (Peso)": "peso"
+        }
+        tipo_inicial = mapa_solucoes[self.cb_solucao_inicial.currentText()]
+
         self.log(f"Gerando {qntd} ordens de produção (Seed: {seed})...")
         ordens_producao = get_dict_producao(qntd, tempo_max=90, lucro_max=5000, seed=seed)
 
@@ -177,7 +198,8 @@ class MainWindow(QMainWindow):
             "capacidade": capacidade,
             "interacoes": iteracoes,
             "taxa_violacao": taxa_violacao,
-            "seed": seed
+            "seed": seed,
+            "tipo_solucao_inicial": tipo_inicial
         }
 
         rodou_alguma = False
@@ -204,8 +226,9 @@ class MainWindow(QMainWindow):
             ils.solve()
 
             res_ils = ils.getResultados()
-            self.log(f"   ↳ Lucro Máximo: R$ {res_ils.get('melhor_valor')}")
-            self.log(f"   ↳ Tempo: {res_ils.get('tempo_final_ils')}/{capacidade} min")
+            self.log(f"   ↳ Solução Inicial: R$ {res_ils.get('valor_inicial')} | Tempo: {res_ils.get('tempo_inicial')} min")
+            self.log(f"   ↳ Lucro Final: R$ {res_ils.get('melhor_valor')}")
+            self.log(f"   ↳ Tempo Final: {res_ils.get('tempo_final_ils')}/{capacidade} min")
             
             hist_ils = res_ils.get("historico_ils", [])
             self.ax.plot(hist_ils, label='ILS', color="#352f8b", linewidth=2)
@@ -222,8 +245,9 @@ class MainWindow(QMainWindow):
             tabu.solve()
 
             res_tabu = tabu.getResultados()
-            self.log(f"   ↳ Lucro Máximo: R$ {res_tabu.get('melhor_valor')}")
-            self.log(f"   ↳ Tempo: {res_tabu.get('tempo_final_ils')}/{capacidade} min")
+            self.log(f"   ↳ Solução Inicial: R$ {res_tabu.get('valor_inicial')} | Tempo: {res_tabu.get('tempo_inicial')} min")
+            self.log(f"   ↳ Lucro Final: R$ {res_tabu.get('melhor_valor')}")
+            self.log(f"   ↳ Tempo Final: {res_tabu.get('tempo_final_ils')}/{capacidade} min")
             
             hist_tabu = res_tabu.get("historico_ils", [])
             self.ax.plot(hist_tabu, label='Tabu Search', color="#ff0000", linewidth=2)
@@ -241,8 +265,9 @@ class MainWindow(QMainWindow):
             sa.solve()
 
             res_sa = sa.getResultados()
-            self.log(f"   ↳ Lucro Máximo: R$ {res_sa.get('melhor_valor')}")
-            self.log(f"   ↳ Tempo: {res_sa.get('tempo_final_ils')}/{capacidade} min")
+            self.log(f"   ↳ Solução Inicial: R$ {res_sa.get('valor_inicial')} | Tempo: {res_sa.get('tempo_inicial')} min")
+            self.log(f"   ↳ Lucro Final: R$ {res_sa.get('melhor_valor')}")
+            self.log(f"   ↳ Tempo Final: {res_sa.get('tempo_final_ils')}/{capacidade} min")
             
             hist_sa = res_sa.get("historico_ils", [])
             self.ax.plot(hist_sa, label='SA', color="#CC720B", linewidth=2)
