@@ -4,7 +4,7 @@ import numpy as np
 
 # Importando o módulo C++
 dir_atual = os.path.dirname(os.path.abspath(__file__))
-caminho_build = os.path.abspath(os.path.join(dir_atual, "..", "build", "Release"))
+caminho_build = os.path.abspath(os.path.join(dir_atual, "build", "Release"))
 sys.path.append(caminho_build)
 
 try:
